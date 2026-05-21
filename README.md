@@ -33,7 +33,7 @@ Real screenshots from each workflow running end-to-end on the same n8n install. 
 
 ## Hire me
 
-This is a portfolio, not a self-install repo. The deliverable is a working automation in your environment — you don't have to learn n8n, write Claude prompts, or wire OAuth.
+This is a portfolio, not a self-install repo. The deliverable is a working automation in your environment — you don't have to learn n8n, design the AI integration, or wire OAuth.
 
 ### What you get with any tier
 
