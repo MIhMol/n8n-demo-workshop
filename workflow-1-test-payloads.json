@@ -1,0 +1,46 @@
+{
+  "test_1_urgent_lead": {
+    "_description": "Existing-customer escalation with explicit deadline. Should classify as is_lead=true, urgency_score>=8. Fires both Airtable AND Slack.",
+    "_expected": {
+      "is_lead": true,
+      "is_spam": false,
+      "urgency_score": ">=8",
+      "intent_category": "support",
+      "slack_fires": true
+    },
+    "payload": {
+      "name": "Sarah Chen",
+      "email": "sarah@acmecorp.io",
+      "message": "Our Salesforce integration broke this morning and we have a client demo tomorrow at 10am Pacific. We're on the Pro plan. Can someone look at this today? This is urgent."
+    }
+  },
+  "test_2_casual_lead": {
+    "_description": "Genuine inquiry with no time pressure. Should classify as is_lead=true, urgency_score<=5. Fires Airtable only.",
+    "_expected": {
+      "is_lead": true,
+      "is_spam": false,
+      "urgency_score": "<=5",
+      "intent_category": "pricing",
+      "slack_fires": false
+    },
+    "payload": {
+      "name": "Mike Patel",
+      "email": "mike@oldportbrewing.com",
+      "message": "Hi, just browsing your services. Curious about pricing for a small automation project for our brewery. No rush at all, just exploring what's out there."
+    }
+  },
+  "test_3_spam": {
+    "_description": "Obvious SEO-spam outreach. Should classify as is_spam=true. Fires Airtable only (with spam flag); Slack blocked.",
+    "_expected": {
+      "is_lead": false,
+      "is_spam": true,
+      "intent_category": "spam",
+      "slack_fires": false
+    },
+    "payload": {
+      "name": "Marketing Pro Tools",
+      "email": "noreply@growmybiz.xyz",
+      "message": "Boost your Google rankings 10x with our exclusive backlink package! 1000 high-DA backlinks for only $99/mo. Limited time offer - click here for our miracle SEO solution and crush your competitors today!"
+    }
+  }
+}

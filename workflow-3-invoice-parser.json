@@ -1,0 +1,254 @@
+﻿{
+    "name":  "Invoice Parser - Drive + Claude",
+    "connections":  {
+                        "Drive Trigger":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Download PDF",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Download PDF":  {
+                                             "main":  [
+                                                          [
+                                                              {
+                                                                  "node":  "Extract PDF Text",
+                                                                  "type":  "main",
+                                                                  "index":  0
+                                                              }
+                                                          ]
+                                                      ]
+                                         },
+                        "Extract PDF Text":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Build Anthropic Payload",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             },
+                        "Build Anthropic Payload":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Anthropic Extract",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Anthropic Extract":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Parse Extraction",
+                                                                       "type":  "main",
+                                                                       "index":  0
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Parse Extraction":  {
+                                                 "main":  [
+                                                              [
+                                                                  {
+                                                                      "node":  "Append to Invoices",
+                                                                      "type":  "main",
+                                                                      "index":  0
+                                                                  }
+                                                              ]
+                                                          ]
+                                             }
+                    },
+    "active":  false,
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "pollTimes":  {
+                                                           "item":  [
+                                                                        {
+                                                                            "mode":  "everyMinute"
+                                                                        }
+                                                                    ]
+                                                       },
+                                         "triggerOn":  "specificFolder",
+                                         "folderToWatch":  {
+                                                               "__rl":  true,
+                                                               "value":  "REPLACE_WITH_YOUR_DRIVE_FOLDER_ID",
+                                                               "mode":  "list",
+                                                               "cachedResultName":  "YOUR_DRIVE_FOLDER_NAME"
+                                                           },
+                                         "event":  "fileCreated",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -1280,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.googleDriveTrigger",
+                      "typeVersion":  1,
+                      "name":  "Drive Trigger",
+                      "id":  "b01197b9-313b-432d-a87c-2af9cc711156"
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "download",
+                                         "fileId":  {
+                                                        "__rl":  true,
+                                                        "value":  "={{ $json.id }}",
+                                                        "mode":  "id"
+                                                    },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -1056,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.googleDrive",
+                      "typeVersion":  3,
+                      "name":  "Download PDF",
+                      "id":  "28e51d6b-9d1b-4960-bc4c-c032a38c987f"
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "pdf",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -832,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.extractFromFile",
+                      "typeVersion":  1,
+                      "name":  "Extract PDF Text",
+                      "id":  "51d90a66-843f-460f-96a6-4f3b181db049"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                     },
+                      "position":  [
+                                       -608,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "name":  "Build Anthropic Payload",
+                      "id":  "0db351e4-fc78-4aa5-968a-1e7a5f6d0515"
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://api.anthropic.com/v1/messages",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "anthropic-version",
+                                                                                         "value":  "2023-06-01"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "content-type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ model: $json.model, max_tokens: $json.max_tokens, system: $json.system, messages: $json.messages }) }}",
+                                         "options":  {
+                                                         "response":  {
+                                                                          "response":  {
+                                                                                           "responseFormat":  "json"
+                                                                                       }
+                                                                      }
+                                                     }
+                                     },
+                      "position":  [
+                                       -384,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "name":  "Anthropic Extract",
+                      "id":  "ebcf6376-b7a7-4db9-b54b-3a9d054928cb"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                     },
+                      "position":  [
+                                       -160,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "name":  "Parse Extraction",
+                      "id":  "02cee222-7131-49f0-ac68-06a30aa9dd96"
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "create",
+                                         "base":  {
+                                                      "__rl":  true,
+                                                      "value":  "appssXnKL1YjkOqJU",
+                                                      "mode":  "list",
+                                                      "cachedResultName":  "Leads"
+                                                  },
+                                         "table":  {
+                                                       "__rl":  true,
+                                                       "value":  "tbl6yeKlO7CtqQH4p",
+                                                       "mode":  "list",
+                                                       "cachedResultName":  "Invoices"
+                                                   },
+                                         "columns":  {
+                                                         "mappingMode":  "defineBelow",
+                                                         "value":  {
+                                                                       "Vendor":  "={{ $json.vendor }}",
+                                                                       "Invoice Number":  "={{ $json.invoice_number }}",
+                                                                       "Amount":  "={{ $json.amount }}",
+                                                                       "Currency":  "={{ $json.currency }}",
+                                                                       "Due Date":  "={{ $json.due_date }}",
+                                                                       "Line Items":  "={{ $json.line_items_text }}",
+                                                                       "Source File":  "={{ $json.source_file }}"
+                                                                   },
+                                                         "matchingColumns":  [
+
+                                                                             ],
+                                                         "attemptToConvertTypes":  false,
+                                                         "convertFieldsToString":  false
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       64,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.airtable",
+                      "typeVersion":  2.1,
+                      "name":  "Append to Invoices",
+                      "id":  "0c52679c-c030-4208-9c19-d98e1a2b6f82"
+                  }
+              ],
+    "settings":  {
+                     "executionOrder":  "v1"
+                 }
+}

@@ -1,0 +1,366 @@
+﻿{
+    "name":  "Lead Intake - Claude Classifier",
+    "connections":  {
+                        "Webhook":  {
+                                        "main":  [
+                                                     [
+                                                         {
+                                                             "node":  "Build Anthropic Payload",
+                                                             "type":  "main",
+                                                             "index":  0
+                                                         }
+                                                     ]
+                                                 ]
+                                    },
+                        "Build Anthropic Payload":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Anthropic Classify",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Anthropic Classify":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Parse Classification",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Parse Classification":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Append to Airtable",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      },
+                                                                      {
+                                                                          "node":  "Check Urgency",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Check Urgency":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Slack Urgent Alert",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          }
+                    },
+    "active":  false,
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "httpMethod":  "POST",
+                                         "path":  "lead-intake",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "8846f3e1-4241-4a56-a4c4-586cfa602d7e",
+                      "name":  "Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -1280,
+                                       48
+                                   ],
+                      "webhookId":  "lead-intake-a1b2c3d4"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                     },
+                      "id":  "2cd6d99e-ec84-490f-84ef-ca4560c96bab",
+                      "name":  "Build Anthropic Payload",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -1056,
+                                       48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://api.anthropic.com/v1/messages",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "anthropic-version",
+                                                                                         "value":  "2023-06-01"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "content-type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify($json) }}",
+                                         "options":  {
+                                                         "response":  {
+                                                                          "response":  {
+                                                                                           "responseFormat":  "json"
+                                                                                       }
+                                                                      }
+                                                     }
+                                     },
+                      "id":  "33e23c9f-38f2-4735-8d27-217757594335",
+                      "name":  "Anthropic Classify",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       -832,
+                                       48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                     },
+                      "id":  "3626656b-624f-46b6-be6a-1dc69119e0cd",
+                      "name":  "Parse Classification",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -608,
+                                       48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "create",
+                                         "base":  {
+                                                      "__rl":  true,
+                                                      "value":  "appssXnKL1YjkOqJU",
+                                                      "mode":  "list",
+                                                      "cachedResultName":  "Leads",
+                                                      "cachedResultUrl":  "https://airtable.com/appssXnKL1YjkOqJU"
+                                                  },
+                                         "table":  {
+                                                       "__rl":  true,
+                                                       "value":  "tblqRCylGik5nxkoL",
+                                                       "mode":  "list",
+                                                       "cachedResultName":  "Table 1",
+                                                       "cachedResultUrl":  "https://airtable.com/appssXnKL1YjkOqJU/tblqRCylGik5nxkoL"
+                                                   },
+                                         "columns":  {
+                                                         "mappingMode":  "defineBelow",
+                                                         "value":  {
+                                                                       "Name":  "={{ $json.name }}",
+                                                                       "Email":  "={{ $json.email }}",
+                                                                       "Message":  "={{ $json.message }}",
+                                                                       "Urgency":  "={{ $json.urgency_score }}",
+                                                                       "Intent":  "={{ $json.intent_category }}"
+                                                                   },
+                                                         "matchingColumns":  [
+
+                                                                             ],
+                                                         "schema":  [
+                                                                        {
+                                                                            "id":  "Name",
+                                                                            "displayName":  "Name",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "string",
+                                                                            "readOnly":  false,
+                                                                            "removed":  false
+                                                                        },
+                                                                        {
+                                                                            "id":  "Email",
+                                                                            "displayName":  "Email",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "string",
+                                                                            "readOnly":  false,
+                                                                            "removed":  false
+                                                                        },
+                                                                        {
+                                                                            "id":  "Message",
+                                                                            "displayName":  "Message",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "string",
+                                                                            "readOnly":  false,
+                                                                            "removed":  false
+                                                                        },
+                                                                        {
+                                                                            "id":  "Urgency",
+                                                                            "displayName":  "Urgency",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "number",
+                                                                            "readOnly":  false,
+                                                                            "removed":  false
+                                                                        },
+                                                                        {
+                                                                            "id":  "Intent",
+                                                                            "displayName":  "Intent",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "options",
+                                                                            "options":  [
+                                                                                            {
+                                                                                                "name":  "pricing",
+                                                                                                "value":  "pricing"
+                                                                                            },
+                                                                                            {
+                                                                                                "name":  "support",
+                                                                                                "value":  "support"
+                                                                                            },
+                                                                                            {
+                                                                                                "name":  "demo",
+                                                                                                "value":  "demo"
+                                                                                            },
+                                                                                            {
+                                                                                                "name":  "partnership",
+                                                                                                "value":  "partnership"
+                                                                                            },
+                                                                                            {
+                                                                                                "name":  "spam",
+                                                                                                "value":  "spam"
+                                                                                            },
+                                                                                            {
+                                                                                                "name":  "other",
+                                                                                                "value":  "other"
+                                                                                            }
+                                                                                        ],
+                                                                            "readOnly":  false,
+                                                                            "removed":  false
+                                                                        },
+                                                                        {
+                                                                            "id":  "Created",
+                                                                            "displayName":  "Created",
+                                                                            "required":  false,
+                                                                            "defaultMatch":  false,
+                                                                            "canBeUsedToMatch":  true,
+                                                                            "display":  true,
+                                                                            "type":  "string",
+                                                                            "readOnly":  true,
+                                                                            "removed":  false
+                                                                        }
+                                                                    ],
+                                                         "attemptToConvertTypes":  false,
+                                                         "convertFieldsToString":  false
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "eb52e9ff-605e-4e7b-8279-76ff968a3fa8",
+                      "name":  "Append to Airtable",
+                      "type":  "n8n-nodes-base.airtable",
+                      "typeVersion":  2.1,
+                      "position":  [
+                                       -384,
+                                       -48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "urgency-gte-8",
+                                                                                   "leftValue":  "={{ $json.urgency_score }}",
+                                                                                   "rightValue":  8,
+                                                                                   "operator":  {
+                                                                                                    "type":  "number",
+                                                                                                    "operation":  "gte"
+                                                                                                }
+                                                                               },
+                                                                               {
+                                                                                   "id":  "not-spam",
+                                                                                   "leftValue":  "={{ $json.is_spam }}",
+                                                                                   "rightValue":  false,
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "equals"
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "id":  "29e14cc6-3ddd-4ff7-b3c0-43014316aeb5",
+                      "name":  "Check Urgency",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       -384,
+                                       144
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "value":  "application/json",
+                                                                                         "name":  "Content-Type"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "method":  "POST",
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ text: `:rotating_light: *URGENT LEAD* (urgency ${$json.urgency_score}/10)\\n*From:* ${$json.name} \u003c${$json.email}\u003e\\n*Intent:* ${$json.intent_category}\\n*Suggested action:* ${$json.suggested_next_action}\\n\\n*Message:*\\n${$json.message}` }) }}",
+                                         "url":  "REPLACE_WITH_YOUR_SLACK_WEBHOOK_URL",
+                                         "sendHeaders":  true,
+                                         "options":  {
+
+                                                     },
+                                         "sendBody":  true
+                                     },
+                      "id":  "0022ba02-7e35-4add-a2e8-3aa44a837f51",
+                      "name":  "Slack Urgent Alert",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       -160,
+                                       144
+                                   ]
+                  }
+              ],
+    "settings":  {
+                     "executionOrder":  "v1"
+                 }
+}

@@ -1,0 +1,282 @@
+﻿{
+    "name":  "Support Triage - Gmail + Claude",
+    "connections":  {
+                        "Gmail Trigger":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Build Anthropic Payload",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          },
+                        "Build Anthropic Payload":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Anthropic Classify",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Anthropic Classify":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Parse Classification",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Parse Classification":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Append to Tickets",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      },
+                                                                      {
+                                                                          "node":  "Check Urgency",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Check Urgency":  {
+                                              "main":  [
+                                                           [
+                                                               {
+                                                                   "node":  "Slack Urgent Alert",
+                                                                   "type":  "main",
+                                                                   "index":  0
+                                                               }
+                                                           ]
+                                                       ]
+                                          }
+                    },
+    "active":  false,
+    "nodes":  [
+                  {
+                      "parameters":  {
+                                         "pollTimes":  {
+                                                           "item":  [
+                                                                        {
+                                                                            "mode":  "everyMinute"
+                                                                        }
+                                                                    ]
+                                                       },
+                                         "simple":  false,
+                                         "filters":  {
+                                                         "labelIds":  [
+                                                                          "INBOX"
+                                                                      ]
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -1280,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.gmailTrigger",
+                      "typeVersion":  1.2,
+                      "name":  "Gmail Trigger",
+                      "id":  "77ba52da-f92e-4fa6-a2bf-9981655478d8"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                     },
+                      "position":  [
+                                       -1056,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "name":  "Build Anthropic Payload",
+                      "id":  "3eb2fd03-bebb-461a-99d0-90318e5fefe2"
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "https://api.anthropic.com/v1/messages",
+                                         "authentication":  "genericCredentialType",
+                                         "genericAuthType":  "httpHeaderAuth",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "anthropic-version",
+                                                                                         "value":  "2023-06-01"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "content-type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ model: $json.model, max_tokens: $json.max_tokens, system: $json.system, messages: $json.messages }) }}",
+                                         "options":  {
+                                                         "response":  {
+                                                                          "response":  {
+                                                                                           "responseFormat":  "json"
+                                                                                       }
+                                                                      }
+                                                     }
+                                     },
+                      "position":  [
+                                       -848,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "name":  "Anthropic Classify",
+                      "id":  "1735f550-f07a-4fb4-bdf0-3bebffa65b4d"
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                     },
+                      "position":  [
+                                       -624,
+                                       80
+                                   ],
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "name":  "Parse Classification",
+                      "id":  "3831f6b5-b0c3-4050-ae3f-1a1d9e9d5c81"
+                  },
+                  {
+                      "parameters":  {
+                                         "operation":  "create",
+                                         "base":  {
+                                                      "__rl":  true,
+                                                      "value":  "appssXnKL1YjkOqJU",
+                                                      "mode":  "list",
+                                                      "cachedResultName":  "Leads"
+                                                  },
+                                         "table":  {
+                                                       "__rl":  true,
+                                                       "value":  "tblGOKGF1FAgcjsDJ",
+                                                       "mode":  "list",
+                                                       "cachedResultName":  "Tickets"
+                                                   },
+                                         "columns":  {
+                                                         "mappingMode":  "defineBelow",
+                                                         "value":  {
+                                                                       "Subject":  "={{ $json.subject }}",
+                                                                       "From Email":  "={{ $json.from_email }}",
+                                                                       "Snippet":  "={{ $json.snippet }}",
+                                                                       "Category":  "={{ $json.category }}",
+                                                                       "Urgency":  "={{ $json.urgency }}",
+                                                                       "Suggested Reply":  "={{ $json.suggested_reply }}",
+                                                                       "Email ID":  "={{ $json.email_id }}"
+                                                                   },
+                                                         "matchingColumns":  [
+
+                                                                             ],
+                                                         "attemptToConvertTypes":  false,
+                                                         "convertFieldsToString":  false
+                                                     },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -400,
+                                       -48
+                                   ],
+                      "type":  "n8n-nodes-base.airtable",
+                      "typeVersion":  2.1,
+                      "name":  "Append to Tickets",
+                      "id":  "8cce3235-1d58-4cba-b292-e20b6ac18b0a"
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "urgency-gte-4",
+                                                                                   "leftValue":  "={{ $json.urgency }}",
+                                                                                   "rightValue":  4,
+                                                                                   "operator":  {
+                                                                                                    "type":  "number",
+                                                                                                    "operation":  "gte"
+                                                                                                }
+                                                                               },
+                                                                               {
+                                                                                   "id":  "not-spam",
+                                                                                   "leftValue":  "={{ $json.category }}",
+                                                                                   "rightValue":  "spam",
+                                                                                   "operator":  {
+                                                                                                    "type":  "string",
+                                                                                                    "operation":  "notEquals"
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -400,
+                                       192
+                                   ],
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "name":  "Check Urgency",
+                      "id":  "8e3643f6-91a1-4c25-a95c-42447baf3641"
+                  },
+                  {
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "REPLACE_WITH_YOUR_SLACK_WEBHOOK_URL",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ JSON.stringify({ text: `:rotating_light: *URGENT TICKET* (P${6 - $json.urgency})\\n*From:* ${$json.from_email}\\n*Subject:* ${$json.subject}\\n*Category:* ${$json.category}\\n*Urgency:* ${$json.urgency}/5\\n\\n*Snippet:*\\n${$json.snippet}\\n\\n*Suggested reply:*\\n${$json.suggested_reply}` }) }}",
+                                         "options":  {
+
+                                                     }
+                                     },
+                      "position":  [
+                                       -176,
+                                       192
+                                   ],
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "name":  "Slack Urgent Alert",
+                      "id":  "be99ec31-58f6-4cc3-8c33-8f9e2528910e"
+                  }
+              ],
+    "settings":  {
+                     "executionOrder":  "v1"
+                 }
+}
