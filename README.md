@@ -47,10 +47,10 @@ This is a portfolio, not a self-install repo. The deliverable is a working autom
 
 | Tier | Price | Includes | Turnaround |
 |---|---|---|---|
-| **Starter** | $400 | One custom workflow, your trigger plus your destination, Claude classification or extraction in between | 1 to 3 business days |
-| **Pro** | $850 | Three coordinated workflows sharing a CRM, Slack routing on urgent items, complete handover | 3 to 10 business days |
-| **Business** | $1,200 | Full intake + triage + invoice processing + analytics dashboard | 5 to 14 business days |
-| **Hourly** | $55/hr | Custom scope, ongoing maintenance, migrations from Zapier or Make | as scoped |
+| **Starter** | $250 | One custom workflow, your trigger plus your destination, Claude classification or extraction in between | 1 to 3 business days |
+| **Pro** | $600 | Three coordinated workflows sharing a CRM, Slack routing on urgent items, complete handover | 3 to 10 business days |
+| **Business** | $900 | Full intake + triage + invoice processing + analytics dashboard | 5 to 14 business days |
+| **Hourly** | $45/hr | Custom scope, ongoing maintenance, migrations from Zapier or Make | as scoped |
 
 ### How an engagement works
 
