@@ -84,7 +84,7 @@
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const SYSTEM_PROMPT = `You are a contact-form classifier for a small B2B services business. You receive a single inbound submission with name, email, and message. Return JSON only with these exact keys:\n\n- is_lead (boolean): true if this is a genuine business inquiry, false otherwise\n- is_spam (boolean): true if this is SEO outreach, link-building, crypto, casino, mass-sent template, or otherwise auto-generated spam\n- urgency_score (integer 1-10): 1 = no time pressure, 10 = needs response within one hour (existing-customer escalation, deadline cited, or explicit urgency words)\n- intent_category (string): one of pricing, support, demo, partnership, spam, other\n- suggested_next_action (string): one short sentence on what the recipient should do next\n\nOutput JSON only. No prose, no markdown, no preamble.`;\n\nconst lead = $input.first().json.body ?? {};\nconst userMessage = `Name: ${lead.name ?? \u0027(missing)\u0027}\nEmail: ${lead.email ?? \u0027(missing)\u0027}\nMessage: ${lead.message ?? \u0027(missing)\u0027}`;\n\nreturn [{\n  json: {\n    model: \u0027claude-haiku-4-5-20251001\u0027,\n    max_tokens: 256,\n    system: SYSTEM_PROMPT,\n    messages: [{ role: \u0027user\u0027, content: userMessage }],\n  }\n}];\n"
                                      },
                       "id":  "2cd6d99e-ec84-490f-84ef-ca4560c96bab",
                       "name":  "Build Anthropic Payload",
@@ -132,11 +132,14 @@
                       "position":  [
                                        -832,
                                        48
-                                   ]
+                                   ],
+                      "retryOnFail":  true,
+                      "maxTries":  3,
+                      "waitBetweenTries":  3000
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const items = $input.all();\nconst out = [];\nfor (const item of items) {\n  let text = item.json.content?.[0]?.text ?? \u0027{}\u0027;\n  // Strip markdown code fences (Claude sometimes wraps JSON in ```json ... ```)\n  text = text.trim().replace(/^```(?:json)?\\s*/i, \u0027\u0027).replace(/\\s*```\\s*$/, \u0027\u0027).trim();\n  // Fallback: extract first {...} block in case any prose snuck in\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) text = jsonMatch[0];\n\n  let parsed;\n  try {\n    parsed = JSON.parse(text);\n  } catch (e) {\n    parsed = {\n      is_lead: false,\n      is_spam: false,\n      urgency_score: 1,\n      intent_category: \u0027other\u0027,\n      suggested_next_action: \u0027Classifier parse failed; review manually\u0027,\n    };\n  }\n  const webhook = $(\u0027Webhook\u0027).first().json.body ?? {};\n  out.push({\n    json: {\n      name: webhook.name ?? \u0027\u0027,\n      email: webhook.email ?? \u0027\u0027,\n      message: webhook.message ?? \u0027\u0027,\n      is_lead: !!parsed.is_lead,\n      is_spam: !!parsed.is_spam,\n      urgency_score: Number(parsed.urgency_score ?? 1),\n      intent_category: String(parsed.intent_category ?? \u0027other\u0027),\n      suggested_next_action: String(parsed.suggested_next_action ?? \u0027\u0027),\n    }\n  });\n}\nreturn out;"
                                      },
                       "id":  "3626656b-624f-46b6-be6a-1dc69119e0cd",
                       "name":  "Parse Classification",

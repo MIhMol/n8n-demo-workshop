@@ -94,7 +94,7 @@
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const SYSTEM_PROMPT = `You are a support ticket classifier. You receive a single inbound email with subject, from address, and snippet. Return JSON only with these exact keys:\n\n- category (string): one of support, bug, billing, general, spam\n- urgency (integer 1-5): 1 = no rush, 5 = production-down or active customer impact\n- suggested_reply (string): one-paragraph draft response in friendly professional tone\n- needs_human (boolean): true if Claude cannot generate a reply confidently, false otherwise\n\nOutput JSON only. No prose, no markdown, no preamble.`;\n\nconst items = $input.all();\nconst out = [];\nfor (const item of items) {\n  const email = item.json;\n  const subject = email.subject ?? \u0027(no subject)\u0027;\n  let from = email.from;\n  if (from \u0026\u0026 from.value \u0026\u0026 from.value[0]) from = from.value[0].address;\n  if (typeof from !== \u0027string\u0027) from = \u0027(unknown sender)\u0027;\n  const snippet = email.snippet ?? (email.text ? email.text.slice(0, 800) : (email.textPlain ? email.textPlain.slice(0, 800) : \u0027(no body)\u0027));\n\n  const userMessage = `Subject: ${subject}\\nFrom: ${from}\\nSnippet: ${snippet}`;\n\n  out.push({\n    json: {\n      model: \u0027claude-haiku-4-5-20251001\u0027,\n      max_tokens: 512,\n      system: SYSTEM_PROMPT,\n      messages: [{ role: \u0027user\u0027, content: userMessage }],\n      _email_meta: { subject, from, snippet, email_id: email.id ?? \u0027\u0027 }\n    }\n  });\n}\nreturn out;"
                                      },
                       "position":  [
                                        -1056,
@@ -142,11 +142,14 @@
                       "type":  "n8n-nodes-base.httpRequest",
                       "typeVersion":  4.2,
                       "name":  "Anthropic Classify",
-                      "id":  "1735f550-f07a-4fb4-bdf0-3bebffa65b4d"
+                      "id":  "1735f550-f07a-4fb4-bdf0-3bebffa65b4d",
+                      "retryOnFail":  true,
+                      "maxTries":  3,
+                      "waitBetweenTries":  3000
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const items = $input.all();\nconst buildItems = $(\u0027Build Anthropic Payload\u0027).all();\nconst out = [];\nfor (let i = 0; i \u003c items.length; i++) {\n  const item = items[i];\n  let text = (item.json.content \u0026\u0026 item.json.content[0] \u0026\u0026 item.json.content[0].text) ? item.json.content[0].text : \u0027{}\u0027;\n  text = text.trim().replace(/^```(?:json)?\\s*/i, \u0027\u0027).replace(/\\s*```\\s*$/, \u0027\u0027).trim();\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) text = jsonMatch[0];\n\n  let parsed;\n  try {\n    parsed = JSON.parse(text);\n  } catch (e) {\n    parsed = {\n      category: \u0027general\u0027,\n      urgency: 1,\n      suggested_reply: \u0027Classifier parse failed; review manually\u0027,\n      needs_human: true,\n    };\n  }\n\n  const meta = (buildItems[i] \u0026\u0026 buildItems[i].json._email_meta) ? buildItems[i].json._email_meta : {};\n  out.push({\n    json: {\n      subject: meta.subject ?? \u0027\u0027,\n      from_email: meta.from ?? \u0027\u0027,\n      snippet: meta.snippet ?? \u0027\u0027,\n      email_id: meta.email_id ?? \u0027\u0027,\n      category: String(parsed.category ?? \u0027general\u0027),\n      urgency: Number(parsed.urgency ?? 1),\n      suggested_reply: String(parsed.suggested_reply ?? \u0027\u0027),\n      needs_human: !!parsed.needs_human,\n    }\n  });\n}\nreturn out;"
                                      },
                       "position":  [
                                        -624,

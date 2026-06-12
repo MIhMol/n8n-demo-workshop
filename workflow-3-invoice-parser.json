@@ -139,7 +139,7 @@
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node builds the Anthropic API request payload for each input item:\n//   - System prompt tuned for the workflow\u0027s classification or extraction task\n//   - User message constructed from the inbound trigger data\n//   - Multi-item handling: iterates $input.all() and emits one payload per item\n//   - Output shape: { model, max_tokens, system, messages, ...meta } per item\n//\n// Full implementation, including the tuned system prompt, is delivered as\n// part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const SYSTEM_PROMPT = `You are an invoice extractor. Parse the provided text from a PDF invoice. Return JSON only with these exact keys:\n\n- vendor_name (string): the company that issued the invoice\n- invoice_number (string): the invoice\u0027s unique identifier\n- amount_total (number): the grand total in the original currency, no symbols\n- currency (string): 3-letter ISO code if visible (USD, EUR, GBP, etc.), or empty string if not visible\n- due_date (string): ISO date YYYY-MM-DD if visible, or null if not visible\n- line_items (array): list of {description: string, amount: number} objects\n\nOutput JSON only. No prose, no markdown, no preamble.`;\n\nconst items = $input.all();\nconst triggerItems = $(\u0027Drive Trigger\u0027).all();\nconst out = [];\nfor (let i = 0; i \u003c items.length; i++) {\n  const item = items[i];\n  const extractedText = item.json.text ?? \u0027(no text extracted)\u0027;\n  const trigger = triggerItems[i] ?? {};\n  const filename = (trigger.json \u0026\u0026 trigger.json.name) ? trigger.json.name : \u0027unknown.pdf\u0027;\n  const fileId = (trigger.json \u0026\u0026 trigger.json.id) ? trigger.json.id : \u0027\u0027;\n\n  const userMessage = `Invoice text:\\n\\n${String(extractedText).slice(0, 8000)}`;\n\n  out.push({\n    json: {\n      model: \u0027claude-haiku-4-5-20251001\u0027,\n      max_tokens: 1024,\n      system: SYSTEM_PROMPT,\n      messages: [{ role: \u0027user\u0027, content: userMessage }],\n      _file_meta: { filename, file_id: fileId }\n    }\n  });\n}\nreturn out;\n"
                                      },
                       "position":  [
                                        -608,
@@ -187,11 +187,14 @@
                       "type":  "n8n-nodes-base.httpRequest",
                       "typeVersion":  4.2,
                       "name":  "Anthropic Extract",
-                      "id":  "ebcf6376-b7a7-4db9-b54b-3a9d054928cb"
+                      "id":  "ebcf6376-b7a7-4db9-b54b-3a9d054928cb",
+                      "retryOnFail":  true,
+                      "maxTries":  3,
+                      "waitBetweenTries":  3000
                   },
                   {
                       "parameters":  {
-                                         "jsCode":  "// [Included with engagement]\n// This Code node parses Claude\u0027s structured JSON response for each item:\n//   - Strips markdown code fences (Claude occasionally wraps JSON in `json ... `)\n//   - Regex fallback to extract the first {...} block if prose snuck in\n//   - try/catch with a safe-default record on parse failure (never crashes)\n//   - Index-based pairing with the Build node\u0027s per-item metadata\n//   - Maps Claude\u0027s keys into the downstream Airtable column names\n//\n// Full implementation is delivered as part of any paid engagement. See README for hire info."
+                                         "jsCode":  "const items = $input.all();\nconst buildItems = $(\u0027Build Anthropic Payload\u0027).all();\nconst out = [];\nfor (let i = 0; i \u003c items.length; i++) {\n  const item = items[i];\n  let text = (item.json.content \u0026\u0026 item.json.content[0] \u0026\u0026 item.json.content[0].text) ? item.json.content[0].text : \u0027{}\u0027;\n  text = text.trim().replace(/^```(?:json)?\\s*/i, \u0027\u0027).replace(/\\s*```\\s*$/, \u0027\u0027).trim();\n  const jsonMatch = text.match(/\\{[\\s\\S]*\\}/);\n  if (jsonMatch) text = jsonMatch[0];\n\n  let parsed;\n  try {\n    parsed = JSON.parse(text);\n  } catch (e) {\n    parsed = {\n      vendor_name: \u0027\u0027,\n      invoice_number: \u0027\u0027,\n      amount_total: 0,\n      currency: \u0027\u0027,\n      due_date: null,\n      line_items: [],\n    };\n  }\n\n  const meta = (buildItems[i] \u0026\u0026 buildItems[i].json._file_meta) ? buildItems[i].json._file_meta : {};\n  out.push({\n    json: {\n      vendor: String(parsed.vendor_name ?? \u0027\u0027),\n      invoice_number: String(parsed.invoice_number ?? \u0027\u0027),\n      amount: Number(parsed.amount_total ?? 0),\n      currency: String(parsed.currency ?? \u0027\u0027),\n      due_date: parsed.due_date ?? null,\n      line_items_text: JSON.stringify(parsed.line_items ?? [], null, 2),\n      source_file: meta.filename ?? \u0027\u0027,\n    }\n  });\n}\nreturn out;\n"
                                      },
                       "position":  [
                                        -160,
